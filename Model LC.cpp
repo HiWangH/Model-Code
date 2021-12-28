@@ -13,7 +13,7 @@ ILOSTLBEGIN
 const IloInt M=10000;// Sufficiently large positive constant
 const IloNum q1=10,q2=1;//Parameters of the objective
 const IloNum T=16;//Planning horizon
-const IloInt Trailer_Num=2;//the trailer the tractor ca pull at most
+const IloInt Trailer_Num=2;//K
 const IloInt speed=80;
 
 int main(int argc,char** argv)
@@ -185,7 +185,7 @@ try
 				if(i!=j) temp2c +=X1[i][j];
 			}
 		}
-	model1.add(temp2c==1);//Constraint (5)
+	model1.add(temp2c==1);//Constraint (2)
 	}
 
 	for(int j=1;j<TotalNode;j++)
@@ -197,7 +197,7 @@ try
 			         temp4c +=X1[j][i];
 					}
 				}
-			 model1.add(temp3c==temp4c);//Constraint (6)
+			 model1.add(temp3c==temp4c);//Constraint (3)
 		}
 
 
@@ -207,7 +207,7 @@ try
 			    {
 					if(i!=j)
 					{IloNumExpr temp10c(env);
-					 temp10c=S1[i]+traveltime[i][j]-M*(1-X1[i][j])-S1[j];//Constraint (7)
+					 temp10c=S1[i]+traveltime[i][j]-M*(1-X1[i][j])-S1[j];//Constraint (4)
 					model1.add(temp10c<=0);
 					}
                 }
@@ -215,23 +215,26 @@ try
 		}
    for(int q=1;q<SecondStageB;q++)
 		{
-		model1.add(S1[q]+pp[q-1]<=S1[q+Medial]);//Constraint (8)
-		model1.add(S1[q]>=TravelTime[0][q]);//Constraint (5)
+		model1.add(S1[q]+pp[q-1]<=S1[q+Medial]);//Constraint (5)
+		model1.add(S1[q]>=TravelTime[0][q]);
 		}
 
    for(int i=SecondStageB;i<TotalNode;i++)
-		{model1.add(S1[i]+TravelTime[i][0]<=T);//the ending time of visiting one customer
+		{model1.add(S1[i]+TravelTime[i][0]<=T);
         }
 
 
    for(int i=0;i<TotalNode;i++)
    {for(int j=0;j<TotalNode;j++)
-		{if(i!=j) model1.add(Y1E[i][j] +Y1I[i][j] +Z1[i][j]<=Trailer_Num*X1[i][j]);}
+		{if(i!=j) model1.add(Y1E[i][j] +Y1I[i][j] +Z1[i][j]<=Trailer_Num*X1[i][j]);}//Constraint (6)
    }
 
-
+   IloIntExpr trailer_yIO(env);
+   for(int i=1;i<TotalNode;i++)
+	trailer_yIO+=Y1I[i][0]+Y1E[0][i];
+	model1.add(trailer_yIO==0);}//Constraint (7)
   
-  //Constraint (5)
+  //Constraint (54)-(57)
 		for(int j=JiYiE;j<SecondStageB;j++)
 		{
 		for(int i=1;i<TotalNode;i++)
@@ -394,19 +397,7 @@ try
 		model1.add(IloIfThen(env,trailer_yI_ij+trailer_yE_ij+trailer_z_ij<=Trailer_Num-1,trailer_z_ji==trailer_z_ij));//
 		}
 
-		IloIntExpr dds(env);
-		for(int i=1;i<TotalNode;i++) dds+=Y1E[0][i]+Y1I[i][0];model1.add(dds==0);
-	
-		for(int i=JiYiE;i<SecondStageB;i++) 
-		{
-		model1.add(X1[0][i]<=Y1I[0][i]);
-		model1.add(Y1I[0][i]<=Trailer_Num*X1[0][i]);
-		}
 
-		for(int i=1;i<JiYiE;i++) 
-		{model1.add(X1[0][i]<=Z1[0][i]);
-		model1.add(Z1[0][i]<=Trailer_Num*X1[0][i]);
-		}
 		
 	IloCplex cplex1(model1);
 	cplex1.setParam(IloCplex::Param::TimeLimit,3600);
@@ -419,7 +410,6 @@ try
 	outfile<<"R"<<A<<'\t'<<cplex1.getValue(temp0c)<<'\t'<<cplex1.getValue(temp1c)<<'\t'<<cplex1.getObjValue()<<'\t'<<static_cast<double>(EndTime-BeginTime)/CLOCKS_PER_SEC<<endl;
 	env.end();
 
-	}
     outfile.close();
 	 
 	}
